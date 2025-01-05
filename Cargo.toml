@@ -1,0 +1,33 @@
+[package]
+name = "bat-desktop-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# rustfft = "6.2.0"
+"colorsys" = "0.6.7"
+"rgb565" = "0.1"
+memmap = "0.7.0"
+#  eframe = {features = [
+#  "default",
+#  "__screenshot", # __screenshot is so we can dump a screenshot using EFRAME_SCREENSHOT_TO
+# ] , version = "0.29.1"}
+image = "0.25.4"
+
+libc = "0.2.0"
+
+env_logger = { version = "0.10", default-features = false, features = [
+  "auto-color",
+  "humantime",
+] }
+
+
+[build-dependencies]
+cc = "1.0"
+
+
+[features]
+#default = ["mmap", "nommap"]
+mmap = []
+nommap = []
+
