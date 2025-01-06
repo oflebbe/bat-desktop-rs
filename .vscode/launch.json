@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'bat-desktop-rs'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=bat-desktop-rs",
+                    "--package=bat-desktop-rs"
+                ],
+                "filter": {
+                    "name": "bat-desktop-rs",
+                    "kind": "bin"
+                }
+            },
+            "args": ["capture00004.raw"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'bat-desktop-rs'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=bat-desktop-rs",
+                    "--package=bat-desktop-rs"
+                ],
+                "filter": {
+                    "name": "bat-desktop-rs",
+                    "kind": "bin"
+                }
+            },
+            "args": ["capture0975.raw"],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
