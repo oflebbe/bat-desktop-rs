@@ -10,14 +10,14 @@ pub struct ScaleOffset {
 #[cfg(feature = "mmap")]
 pub struct Input {
     buf: memmap2::Mmap,
-    sampling: f32, // sampling freq
+    _sampling: f32, // sampling freq
     pub channels: Vec<ScaleOffset>
 }
 
 #[cfg(not(feature = "mmap"))]
 pub struct Input {
     buf: Vec<u8>,
-    sampling: f32, // sampling freq
+    _sampling: f32, // sampling freq
     channels: Vec<ScaleOffset>
 }
 
@@ -28,7 +28,7 @@ impl Input {
         let file = File::open(filename)?;
         Ok(Input {
             buf: unsafe { memmap2::Mmap::map(&file)? },
-            sampling: 250e3,
+            _sampling: 250e3,
             channels: vec![ ScaleOffset{ scale:2, offset: 0}, ScaleOffset{ scale:2, offset: 1}]
         })
     }

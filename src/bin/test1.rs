@@ -30,20 +30,20 @@ fn main() {
 
     let img_l = pixmap::create_pixmap(
         data16,
-        channels[0].offset,
+        channels[0].offset+2000000,
         channels[0].scale,
-        5000,
+        2000,
         512,
-        0.1,
+        0.96,
     );
 
     let img_r = pixmap::create_pixmap(
         data16,
-        channels[1].offset,
+        channels[1].offset+2000000,
         channels[1].scale,
-        5000,
+        2000,
         512,
-        0.1,
+        0.96,
     );
     let elapsed = start.elapsed();
     println!(

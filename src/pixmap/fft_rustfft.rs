@@ -1,5 +1,3 @@
-#![cfg(not(feature = "meow"))]
-
 use rustfft::{num_complex::Complex32, FftPlanner};
 use std::sync::Arc;
 

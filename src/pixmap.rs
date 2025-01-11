@@ -1,18 +1,9 @@
 use colorsys::{Hsl, HslRatio, Rgb};
-use image::{self, ImageBuffer, RgbImage};
+use image::{self};
 use std::f32::consts::TAU;
 
-
-#[cfg(feature = "meow")]
-#[path="pixmap/fft_meow.rs"]
-mod fft;
-
-#[cfg(not(feature = "meow"))]
 #[path="pixmap/fft_rustfft.rs"]
 mod fft;
-
-
-use rayon::prelude::*;
 
 pub fn create_pixmap(
     data: &[u16],
@@ -36,10 +27,6 @@ pub fn create_pixmap(
         end = fft_end - fft_size;
     }
 
-    let size = (data.len() / 2 - fft_size) / off;
-
-
-
     let mut fft = fft::Fft::new(fft_size);
     let height = fft_size / 2;
 
@@ -47,6 +34,9 @@ pub fn create_pixmap(
 
     for col in 0..width {
         let i = col * off + offset;
+        if i > end {
+            break
+        }
         for j in 0..fft_size {
             let val = (data[(i + j) * scale] as f32 - 2048.0f32) * window[j];
             fft.input_set_real(j, val);
