@@ -9,7 +9,6 @@ pub fn create_pixmap(
     data: &[u16],
     offset: usize,
     scale: usize,
-    width: usize,
     fft_size: usize,
     overlap: f32,
 ) -> image::RgbImage {
@@ -20,24 +19,19 @@ pub fn create_pixmap(
     }
 
     let off = (fft_size as f32 * (1.0f32 - overlap)) as usize;
-    let mut end = width * off + offset;
-    let mut fft_end = end + fft_size;
-    if fft_end > data.len() {
-        fft_end = data.len();
-        end = fft_end - fft_size;
-    }
-
+    let width = (((data.len()-offset)/scale-fft_size))/off;
     let mut fft = fft::Fft::new(fft_size);
     let height = fft_size / 2;
 
-    let mut imgbuf = image::RgbImage::new(width as u32, height as u32);
+    let mut imgbuf = image::RgbImage::new(width as u32 +1, height as u32);
 
     for col in 0..width {
         let i = col * off + offset;
-        if i > end {
-            break;
-        }
+    
         for j in 0..fft_size {
+            if ((i+col)*scale > data.len()) {
+                break;
+            }
             let val = (data[(i + j) * scale] as f32 - 2048.0f32) * window[j];
             fft.input_set_real(j, val);
         }
