@@ -3,14 +3,12 @@ use std::env;
 use std::ffi::OsStr;
 use std::time::Instant;
 mod input;
-// Perform a forward FFT of size 1234
 use eframe::egui;
 use egui::epaint;
 
 mod pixmap;
 
-
-fn load_images(file_name: &OsStr) -> (epaint::image::ColorImage,epaint::image::ColorImage) {
+fn load_images(file_name: &OsStr) -> (epaint::image::ColorImage, epaint::image::ColorImage) {
     let input = input::Input::new(file_name).expect("no err expected");
 
     let data16 = input.get();
@@ -34,9 +32,15 @@ fn load_images(file_name: &OsStr) -> (epaint::image::ColorImage,epaint::image::C
         0.1,
     );
 
-    let im_r = egui::ColorImage::from_rgb([img_l.width() as usize, img_l.height() as usize], &img_l.to_vec());
-    let im_l = egui::ColorImage::from_rgb([img_r.width() as usize, img_r.height() as usize], &img_r.to_vec());
-    (im_l,im_r)
+    let im_r = egui::ColorImage::from_rgb(
+        [img_l.width() as usize, img_l.height() as usize],
+        &img_l.to_vec(),
+    );
+    let im_l = egui::ColorImage::from_rgb(
+        [img_r.width() as usize, img_r.height() as usize],
+        &img_r.to_vec(),
+    );
+    (im_l, im_r)
 }
 
 fn main() -> eframe::Result {
@@ -52,9 +56,13 @@ fn main() -> eframe::Result {
         "Image Viewer",
         options,
         Box::new(|_cc| {
-            let myapp = MyApp{ texture_r: None, texture_l: None, other : args[1].clone()};
+            let myapp = MyApp {
+                texture_r: None,
+                texture_l: None,
+                other: args[1].clone(),
+            };
 
-            Ok( Box::new(myapp))
+            Ok(Box::new(myapp))
         }),
     )
 }
@@ -70,20 +78,26 @@ struct MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            
-            if  self.texture_l == None {
-              
+            if self.texture_l == None {
                 let (im_l, im_r) = load_images(OsStr::new(&self.other));
-                self.texture_l = Some(ui.ctx().load_texture("bat034", im_l, egui::TextureOptions::default()));
-                self.texture_r = Some(ui.ctx().load_texture("bat034", im_r, egui::TextureOptions::default()));
+                self.texture_l = Some(ui.ctx().load_texture(
+                    "bat034",
+                    im_l,
+                    egui::TextureOptions::default(),
+                ));
+                self.texture_r = Some(ui.ctx().load_texture(
+                    "bat034",
+                    im_r,
+                    egui::TextureOptions::default(),
+                ));
             }
-                       
+
             if let (Some(texture_l), Some(texture_r)) = (&self.texture_l, &self.texture_r) {
                 egui::ScrollArea::both().show(ui, |ui| {
                     ui.image(texture_l);
                     ui.image(texture_r);
                 });
-           
-        }});
+            }
+        });
     }
 }

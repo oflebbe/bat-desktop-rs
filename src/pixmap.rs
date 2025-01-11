@@ -2,7 +2,7 @@ use colorsys::{Hsl, HslRatio, Rgb};
 use image::{self};
 use std::f32::consts::TAU;
 
-#[path="pixmap/fft_rustfft.rs"]
+#[path = "pixmap/fft_rustfft.rs"]
 mod fft;
 
 pub fn create_pixmap(
@@ -35,7 +35,7 @@ pub fn create_pixmap(
     for col in 0..width {
         let i = col * off + offset;
         if i > end {
-            break
+            break;
         }
         for j in 0..fft_size {
             let val = (data[(i + j) * scale] as f32 - 2048.0f32) * window[j];
@@ -43,11 +43,10 @@ pub fn create_pixmap(
         }
 
         fft.process();
-       
 
         for j in 0..height {
             let power = fft.output_power(j);
-            
+
             let mut ang = (power.log10() - 4.0f32) / (11.0f32 - 4.0f32);
             if ang < 0.0 {
                 ang = 0.0;

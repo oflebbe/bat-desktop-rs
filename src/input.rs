@@ -1,26 +1,25 @@
+use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::error::Error;
 
 pub struct ScaleOffset {
     pub scale: usize,
-    pub offset: usize
+    pub offset: usize,
 }
 
 #[cfg(feature = "mmap")]
 pub struct Input {
     buf: memmap2::Mmap,
     _sampling: f32, // sampling freq
-    pub channels: Vec<ScaleOffset>
+    pub channels: Vec<ScaleOffset>,
 }
 
 #[cfg(not(feature = "mmap"))]
 pub struct Input {
     buf: Vec<u8>,
     _sampling: f32, // sampling freq
-    channels: Vec<ScaleOffset>
+    channels: Vec<ScaleOffset>,
 }
-
 
 #[cfg(feature = "mmap")]
 impl Input {
@@ -29,7 +28,16 @@ impl Input {
         Ok(Input {
             buf: unsafe { memmap2::Mmap::map(&file)? },
             _sampling: 250e3,
-            channels: vec![ ScaleOffset{ scale:2, offset: 0}, ScaleOffset{ scale:2, offset: 1}]
+            channels: vec![
+                ScaleOffset {
+                    scale: 2,
+                    offset: 0,
+                },
+                ScaleOffset {
+                    scale: 2,
+                    offset: 1,
+                },
+            ],
         })
     }
 }
@@ -40,7 +48,16 @@ pub impl Input {
         Ok(Input {
             buf: std::fs::read(filename)?,
             sampling: 250e3,
-            channels: vec![ ScaleOffset{ scale:2, offset: 0}, ScaleOffset{ scale:2, offset: 1}]
+            channels: vec![
+                ScaleOffset {
+                    scale: 2,
+                    offset: 0,
+                },
+                ScaleOffset {
+                    scale: 2,
+                    offset: 1,
+                },
+            ],
         })
     }
 }
