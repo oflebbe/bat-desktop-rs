@@ -5,12 +5,14 @@ use std::f32::consts::TAU;
 #[path = "pixmap/fft_rustfft.rs"]
 mod fft;
 
+
 pub fn create_pixmap(
     data: &[u16],
     offset: usize,
     scale: usize,
     fft_size: usize,
-    overlap: f32,
+    step_size: usize,
+    width : usize
 ) -> image::RgbImage {
     let mut window = vec![0.0f32; fft_size];
     let a0 = 25. / 46. as f32;
@@ -18,27 +20,24 @@ pub fn create_pixmap(
         window[i] = a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos();
     }
 
-    let off = (fft_size as f32 * (1.0f32 - overlap)) as usize;
-    let width = (((data.len()-offset)/scale-fft_size))/off;
     let mut fft = fft::Fft::new(fft_size);
     let height = fft_size / 2;
 
     let mut imgbuf = image::RgbImage::new(width as u32 +1, height as u32);
 
     for col in 0..width {
-        let i = col * off + offset;
-    
+        let i = col * step_size;
+        if (i+fft_size-1) * scale+offset >= data.len() {
+            break;
+        }
         for j in 0..fft_size {
-            if ((i+col)*scale > data.len()) {
-                break;
-            }
-            let val = (data[(i + j) * scale] as f32 - 2048.0f32) * window[j];
+            let val = (data[(i + j) * scale+offset] as f32 - 2048.0f32) * window[j];
             fft.input_set_real(j, val);
         }
 
         fft.process();
 
-        for j in 0..height {
+        for j in 10..height {
             let power = fft.output_power(j);
 
             let mut ang = (power.log10() - 4.0f32) / (11.0f32 - 4.0f32);

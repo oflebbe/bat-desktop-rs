@@ -7,39 +7,21 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'bat-desktop-rs'",
+            "name": "Debug executable 'bat_desktop_rs'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=bat-desktop-rs",
-                    "--package=bat-desktop-rs"
+                    "--bin=bat_desktop_rs",
+                    "--package=bat_desktop_rs"
                 ],
                 "filter": {
-                    "name": "bat-desktop-rs",
+                    "name": "bat_desktop_rs",
                     "kind": "bin"
                 }
             },
-            "args": ["capture00004.raw"],
+            "args": ["/home/olaf/bat034/capture00000.raw"],
             "cwd": "${workspaceFolder}"
         },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'bat-desktop-rs'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=bat-desktop-rs",
-                    "--package=bat-desktop-rs"
-                ],
-                "filter": {
-                    "name": "bat-desktop-rs",
-                    "kind": "bin"
-                }
-            },
-            "args": ["capture0975.raw"],
-            "cwd": "${workspaceFolder}"
-        }
+     
     ]
 }

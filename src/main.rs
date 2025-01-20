@@ -15,10 +15,15 @@ fn load_images(file_name: &OsStr) -> (epaint::image::ColorImage, epaint::image::
 
     let data16 = input.get();
     let channels = &input.channels;
+    let fft_size = 512;
+    let step_size = (fft_size as f32 / 0.9f32) as usize;
 
-    let img_l = pixmap::create_pixmap(data16, channels[0].offset, channels[0].scale, 512, 0.1);
 
-    let img_r = pixmap::create_pixmap(data16, channels[1].offset, channels[1].scale, 512, 0.1);
+    let width = (((data16.len()-channels[0].offset)/channels[0].scale-fft_size))/step_size;
+
+    let img_l = pixmap::create_pixmap(data16, channels[0].offset, channels[0].scale, fft_size, step_size, width);
+
+    let img_r = pixmap::create_pixmap(data16, channels[1].offset, channels[1].scale, fft_size, step_size, width);
 
     let im_r = egui::ColorImage::from_rgb(
         [img_l.width() as usize, img_l.height() as usize],

@@ -1,30 +1,35 @@
-use rustfft::{num_complex::Complex32, FftPlanner};
+use realfft::{num_complex::Complex32, RealFftPlanner};
 use std::sync::Arc;
 
 pub struct Fft {
-    planner: Arc<dyn rustfft::Fft<f32>>,
-    buffer: Vec<Complex32>,
+    planner: Arc<dyn realfft::RealToComplex<f32>>,
+    input: Vec<f32>,
+    output: Vec<Complex32>,
 }
 
 impl Fft {
     pub fn new(fft_size: usize) -> Fft {
-        let mut instance = FftPlanner::new();
+        let mut instance = RealFftPlanner::<f32>::new();
+        let p =  instance.plan_fft_forward(fft_size);
+        let input = p.make_input_vec();
+        let output = p.make_output_vec();
 
         Fft {
-            planner: instance.plan_fft_forward(fft_size),
-            buffer: vec![Complex32 { re: 0.0, im: 0.0 }; fft_size],
+            planner: p,
+            input: input,
+            output : output,
         }
     }
 
     pub fn input_set_real(&mut self, i: usize, val: f32) {
-        self.buffer[i] = Complex32 { re: val, im: 0.0 }
+        self.input[i] =  val
     }
 
     pub fn output_power(&self, i: usize) -> f32 {
-        self.buffer[i].re * self.buffer[i].re + self.buffer[i].im * self.buffer[i].im
+        self.output[i].re * self.output[i].re + self.output[i].im * self.output[i].im
     }
 
     pub fn process(&mut self) {
-        self.planner.process(&mut self.buffer);
+        let _ = self.planner.process(&mut self.input, &mut self.output);
     }
 }

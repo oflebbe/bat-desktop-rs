@@ -28,27 +28,34 @@ fn main() {
     }
     println!("{} size, {} sum", data16.len(), sum); */
 
+    let fft_size = 512;
+    let step_size = (fft_size as f32 / 0.9f32) as usize;
+
+    let width = (((data16.len()-channels[0].offset)/channels[0].scale-fft_size))/step_size;
+
+    
     let img_l = pixmap::create_pixmap(
         data16,
         channels[0].offset,
         channels[0].scale,
-        512,
-        0.96,
-    );
+        fft_size, step_size, width);
+
 
     let img_r = pixmap::create_pixmap(
         data16,
         channels[1].offset,
         channels[1].scale,
-        512,
-        0.96,
-    );
+        fft_size, step_size, width);
+    
     let elapsed = start.elapsed();
+    
     println!(
-        "time = {}.{:03}",
+        "time = {}.{:05}",
         elapsed.as_secs(),
         elapsed.subsec_millis()
     );
+
+
     img_l.save("output_l.png").expect("save l");
     img_r.save("output_r.png").expect("save r");
     
