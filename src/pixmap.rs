@@ -1,10 +1,63 @@
-use colorsys::{Hsl, HslRatio, Rgb};
 use image::{self};
+use rayon::prelude::*;
+use rustfft::num_complex::Complex;
+use rustfft::num_traits::Zero;
+use rustfft::{num_complex::Complex32, FftPlanner};
 use std::f32::consts::TAU;
 
-#[path = "pixmap/fft_rustfft.rs"]
-mod fft;
+fn flo_hue2rgb(p: f32, q: f32, _t: f32) -> f32 {
+    let mut t = _t;
+    if t < 0.0f32 {
+        t += 1.0f32;
+    }
+    if t > 1.0f32 {
+        t -= 1.0f32;
+    }
+    if t < (1.0f32 / 6.0f32) {
+        return p + (q - p) * 6.0f32 * t;
+    }
+    if t < (1.0f32 / 2.0f32) {
+        return q;
+    }
+    if t < (2.0f32 / 3.0f32) {
+        return p + (q - p) * ((2.0f32 / 3.0f32) - t) * 6.0f32;
+    }
+    p
+}
 
+fn flo_color888(r: f32, g: f32, b: f32) -> [u8; 3] {
+    let r_ = (r * 255.0f32) as u8;
+    let g_ = (g * 255.0f32) as u8;
+    let b_ = (b * 255.0f32) as u8;
+
+    [r_, g_, b_]
+}
+
+fn flo_hsl_to_rgb(h: f32, s: f32, l: f32) -> [u8; 3] {
+    let r;
+    let g;
+    let b;
+
+    if s == 0.0f32 {
+        r = l; // achromatic
+        g = l;
+        b = l;
+    } else {
+        let q = if l < 0.5f32 {
+            l * (1.0f32 + s)
+        } else {
+            l + s - l * s
+        };
+
+        let p = 2.0f32 * l - q;
+
+        r = flo_hue2rgb(p, q, h + 1.0f32 / 3.0f32);
+        g = flo_hue2rgb(p, q, h);
+        b = flo_hue2rgb(p, q, h - 1.0f32 / 3.0f32);
+    }
+
+    flo_color888(r, g, b)
+}
 
 pub fn create_pixmap(
     data: &[u16],
@@ -12,7 +65,7 @@ pub fn create_pixmap(
     scale: usize,
     fft_size: usize,
     step_size: usize,
-    width : usize
+    width: usize,
 ) -> image::RgbImage {
     let mut window = vec![0.0f32; fft_size];
     let a0 = 25. / 46. as f32;
@@ -20,45 +73,60 @@ pub fn create_pixmap(
         window[i] = a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos();
     }
 
-    let mut fft = fft::Fft::new(fft_size);
     let height = fft_size / 2;
 
-    let mut imgbuf = image::RgbImage::new(width as u32 +1, height as u32);
+    let mut imgbuf = image::RgbImage::new(width as u32 + 1, height as u32);
+    let start = 0;
+    let max_width = ((data.len() - 1) / scale - (fft_size - 1) - start) / step_size;
+    let mut w = width;
+    if max_width < width {
+        w = max_width;
+    }
 
-    for col in 0..width {
-        let i = col * step_size;
-        if (i+fft_size-1) * scale+offset >= data.len() {
-            break;
-        }
-        for j in 0..fft_size {
-            let val = (data[(i + j) * scale+offset] as f32 - 2048.0f32) * window[j];
-            fft.input_set_real(j, val);
-        }
+    let planner = FftPlanner::new().plan_fft_forward(fft_size);
 
-        fft.process();
+    let mut pixel_data = Vec::<(u32,Vec<[u8;3]>)>::new();
+    (0..w)
+        .into_par_iter()
+        .map(|col| {
+            let mut buffer = vec![Complex::zero(); fft_size];
+            let mut scratch = vec![Complex::zero(); planner.get_inplace_scratch_len()];
 
-        for j in 10..height {
-            let power = fft.output_power(j);
-
-            let mut ang = (power.log10() - 4.0f32) / (11.0f32 - 4.0f32);
-            if ang < 0.0 {
-                ang = 0.0;
+            let i = col * step_size;
+            for j in 0..fft_size {
+                let val = (data[(i + j) * scale + offset] as f32 - 2048.0f32) * window[j];
+                buffer[j] = Complex32 { re: val, im: 0. };
             }
-            if ang > 1.0 {
-                ang = 1.0;
+
+            planner.process_with_scratch(&mut buffer, &mut scratch);
+
+            let mut image_column = vec![[0,0,0]; height];
+            for j in 0..height {
+                let power = buffer[j].re * buffer[j].re + buffer[j].im * buffer[j].im;
+
+                let mut ang = (power.log10() - 4.0f32) / (11.0f32 - 4.0f32);
+                if ang < 0.0 {
+                    ang = 0.0;
+                }
+                if ang > 1.0 {
+                    ang = 1.0;
+                }
+                let rgb = flo_hsl_to_rgb(1.0 - ang as f32, 1.0f32, 0.5f32);
+                image_column[j] = rgb;
             }
-            let v: [f32; 3] = [1.0 - ang as f32, 1.0f32, 0.5f32];
+            (col as u32, image_column)
+        })
+        .collect_into_vec(&mut pixel_data);
 
-            let hsl: Hsl = HslRatio::from(&v).into();
-            let rgb = Rgb::from(hsl);
+    for (col, pixels) in pixel_data.iter() {
+        for i in 0..pixels.len() {
+            
 
-            imgbuf.put_pixel(
-                col as u32,
-                (height - 1 - j) as u32,
-                image::Rgb([rgb.red() as u8, rgb.green() as u8, rgb.blue() as u8]),
-            );
+            imgbuf.put_pixel(*col, i as u32, image::Rgb(pixels[i]));
         }
     }
 
     imgbuf
+
+    // imgbuf
 }
