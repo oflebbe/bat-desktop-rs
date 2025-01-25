@@ -9,8 +9,7 @@ fn flo_hue2rgb(p: f32, q: f32, _t: f32) -> f32 {
     let mut t = _t;
     if t < 0.0f32 {
         t += 1.0f32;
-    }
-    if t > 1.0f32 {
+    } else if t > 1.0f32 {
         t -= 1.0f32;
     }
     if t < (1.0f32 / 6.0f32) {
@@ -67,6 +66,7 @@ pub fn create_pixmap(
     step_size: usize,
     width: usize,
 ) -> image::RgbImage {
+
     let mut window = vec![0.0f32; fft_size];
     let a0 = 25. / 46. as f32;
     for i in 0..fft_size {
@@ -102,15 +102,9 @@ pub fn create_pixmap(
 
             let mut image_column = vec![[0,0,0]; height];
             for j in 0..height {
-                let power = buffer[j].re * buffer[j].re + buffer[j].im * buffer[j].im;
-
-                let mut ang = (power.log10() - 4.0f32) / (11.0f32 - 4.0f32);
-                if ang < 0.0 {
-                    ang = 0.0;
-                }
-                if ang > 1.0 {
-                    ang = 1.0;
-                }
+                let power = buffer[j].norm_sqr();
+                let ang = ((power.log10() - 4.0f32) / (11.0f32 - 4.0f32)).clamp( 0.0f32, 1.0f32);
+       
                 let rgb = flo_hsl_to_rgb(1.0 - ang as f32, 1.0f32, 0.5f32);
                 image_column[j] = rgb;
             }
@@ -120,13 +114,9 @@ pub fn create_pixmap(
 
     for (col, pixels) in pixel_data.iter() {
         for i in 0..pixels.len() {
-            
-
             imgbuf.put_pixel(*col, i as u32, image::Rgb(pixels[i]));
         }
     }
 
     imgbuf
-
-    // imgbuf
 }
