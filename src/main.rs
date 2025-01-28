@@ -5,14 +5,18 @@ use eframe::{egui, emath};
 use egui::epaint;
 use std::ffi::OsStr;
 
-mod pixmap;
 mod input;
+mod pixmap;
 
 const TEXTURE_MAX_SIZE: usize = 16384;
 
-fn load_images(file_name: &OsStr) -> (epaint::image::ColorImage, epaint::image::ColorImage, epaint::image::ColorImage ) {
-    let input = input::Input::new(file_name).expect("no err expected");
-
+fn load_images(
+    input: &input::Input
+) -> (
+    epaint::image::ColorImage,
+    epaint::image::ColorImage,
+    epaint::image::ColorImage,
+) {
     let data16 = input.get();
     let channels = &input.channels;
     let fft_size = 512;
@@ -37,14 +41,7 @@ fn load_images(file_name: &OsStr) -> (epaint::image::ColorImage, epaint::image::
         width,
     );
 
-    let img_c = pixmap::create_correlation(
-        data16,
-        0,
-        2,
-        fft_size,
-        step_size,
-        width,
-    );
+    let img_c = pixmap::create_correlation(data16, 0, 2, fft_size, step_size, width);
 
     let im_r = egui::ColorImage::from_rgb(
         [img_l.width() as usize, img_l.height() as usize],
@@ -69,6 +66,9 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 512.0]),
         ..Default::default()
     };
+
+    let input = input::Input::new(OsStr::new(&args[1])).expect("no err expected");
+ 
     eframe::run_native(
         "Image Viewer",
         options,
@@ -77,7 +77,7 @@ fn main() -> eframe::Result {
                 texture_r: None,
                 texture_l: None,
                 texture_c: None,
-                other: args[1].clone(),
+                input: input,
             };
 
             Ok(Box::new(myapp))
@@ -90,14 +90,14 @@ struct MyApp {
     texture_l: Option<Vec<egui::TextureHandle>>,
     texture_r: Option<Vec<egui::TextureHandle>>,
     texture_c: Option<Vec<egui::TextureHandle>>,
-    other: String,
+    input: input::Input,
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.texture_l == None {
-                let (im_l, im_r, im_c) = load_images(OsStr::new(&self.other));
+                let (im_l, im_r, im_c) = load_images( &self.input);
                 let (num_tex_l, num_tex_r) = (
                     im_l.size[0] / TEXTURE_MAX_SIZE + 1,
                     im_r.size[0] / TEXTURE_MAX_SIZE + 1,
@@ -132,7 +132,9 @@ impl eframe::App for MyApp {
                 self.texture_c = Some(texture_c);
             }
 
-            if let (Some(texture_l), Some(texture_r), Some(texture_c)) = (&self.texture_l, &self.texture_r, &self.texture_c) {
+            if let (Some(texture_l), Some(texture_r), Some(texture_c)) =
+                (&self.texture_l, &self.texture_r, &self.texture_c)
+            {
                 egui::ScrollArea::both().show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);

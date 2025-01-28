@@ -209,6 +209,7 @@ pub fn create_correlation(
             );
         }
     }
+    /*
     let mut maximum = 0.0f32;
     let mut minimum = 0.0f32;
     
@@ -224,7 +225,6 @@ pub fn create_correlation(
             pixel_data[i].1
         };
     }
-    println!("{} {} xx", minimum, maximum);
-
+ */
     imgbuf
 }
