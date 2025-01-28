@@ -29,3 +29,8 @@ mmap = []
 
 [profile.release]
 debug = true
+
+[[bin]]
+name = "test1"
+path = "src/test1.rs"
+

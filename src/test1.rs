@@ -3,10 +3,9 @@ use std::ffi::OsStr;
 use std::time::Instant;
 use Vec;
 
-#[path = "../input.rs"]
 mod input;
-#[path = "../pixmap.rs"]
 mod pixmap;
+
 use rayon;
 
 fn main() {

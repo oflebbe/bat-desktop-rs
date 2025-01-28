@@ -66,31 +66,26 @@ pub fn create_pixmap(
     step_size: usize,
     width: usize,
 ) -> image::RgbImage {
-
-    let mut window = vec![0.0f32; fft_size];
     let a0 = 25. / 46. as f32;
-    for i in 0..fft_size {
-        window[i] = a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos();
-    }
+    let window: Vec<f32> = (0..fft_size)
+        .map(|i| a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos())
+        .collect();
 
     let height = fft_size / 2;
 
     let mut imgbuf = image::RgbImage::new(width as u32 + 1, height as u32);
     let start = 0;
     let max_width = ((data.len() - 1) / scale - (fft_size - 1) - start) / step_size;
-    let mut w = width;
-    if max_width < width {
-        w = max_width;
-    }
+    let w = width.min(max_width);
 
-    let planner = FftPlanner::new().plan_fft_forward(fft_size);
+    let fft = FftPlanner::new().plan_fft_forward(fft_size);
 
-    let mut pixel_data = Vec::<(u32,Vec<[u8;3]>)>::new();
+    let mut pixel_data = Vec::<Vec<[u8; 3]>>::new();
     (0..w)
         .into_par_iter()
         .map(|col| {
             let mut buffer = vec![Complex::zero(); fft_size];
-            let mut scratch = vec![Complex::zero(); planner.get_inplace_scratch_len()];
+            let mut scratch = vec![Complex::zero(); fft.get_inplace_scratch_len()];
 
             let i = col * step_size;
             for j in 0..fft_size {
@@ -98,25 +93,138 @@ pub fn create_pixmap(
                 buffer[j] = Complex32 { re: val, im: 0. };
             }
 
-            planner.process_with_scratch(&mut buffer, &mut scratch);
+            fft.process_with_scratch(&mut buffer, &mut scratch);
 
-            let mut image_column = vec![[0,0,0]; height];
+            let mut image_column = vec![[0, 0, 0]; height];
             for j in 0..height {
-                let power = buffer[j].norm_sqr();
-                let ang = ((power.log10() - 4.0f32) / (11.0f32 - 4.0f32)).clamp( 0.0f32, 1.0f32);
-       
-                let rgb = flo_hsl_to_rgb(1.0 - ang as f32, 1.0f32, 0.5f32);
-                image_column[j] = rgb;
+                let ang = ((buffer[j].norm_sqr().log10() - 4.0) / (11.0 - 4.0)).clamp(0.0, 1.0);
+
+                image_column[j] = flo_hsl_to_rgb(1.0 - ang, 1.0, 0.5);
             }
-            (col as u32, image_column)
+            image_column
         })
         .collect_into_vec(&mut pixel_data);
 
-    for (col, pixels) in pixel_data.iter() {
-        for i in 0..pixels.len() {
-            imgbuf.put_pixel(*col, i as u32, image::Rgb(pixels[i]));
+    for (col, pixels) in pixel_data.iter().enumerate() {
+        for (i, pixel) in pixels.iter().enumerate() {
+            imgbuf.put_pixel(
+                col as u32,
+                (height - 1) as u32 - i as u32,
+                image::Rgb(*pixel),
+            );
         }
     }
+
+    imgbuf
+}
+
+fn max_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
+    vec.iter()
+        .fold(None, |min, &x| match min {
+            None => Some(x.re),
+            Some(y) => Some(x.re.max(y)),
+        })
+        .unwrap()
+}
+
+fn min_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
+    vec.iter()
+        .fold(None, |min, &x| match min {
+            None => Some(x.re),
+            Some(y) => Some(x.re.min(y)),
+        })
+        .unwrap()
+}
+
+pub fn create_correlation(
+    data: &[u16],
+    offset: usize,
+    scale: usize,
+    fft_size: usize,
+    step_size: usize,
+    width: usize,
+) -> image::RgbImage {
+    let a0 = 25. / 46. as f32;
+    let window: Vec<f32> = (0..fft_size)
+        .map(|i| a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos())
+        .collect();
+
+    let height = fft_size / 2;
+
+    let mut imgbuf = image::RgbImage::new(width as u32 + 1, height as u32);
+    let start = 0;
+    let max_width = ((data.len() - 1) / scale - (fft_size - 1) - start) / step_size;
+    let w = width.min(max_width);
+
+    let fft = FftPlanner::new().plan_fft_forward(fft_size);
+    let ifft = FftPlanner::new().plan_fft_inverse(fft_size);
+    let mut pixel_data = Vec::<(Vec<[u8; 3]>,f32,f32)>::new();
+
+    (0..w)
+        .into_par_iter()
+        .map(|col| {
+            let mut buffer_l = vec![Complex::zero(); fft_size];
+            let mut buffer_r = vec![Complex::zero(); fft_size];
+            let mut ibuffer = vec![Complex::zero(); fft_size];
+            let mut scratch = vec![Complex::zero(); fft.get_inplace_scratch_len()];
+
+            let i = col * step_size;
+            for j in 0..fft_size {
+                let val_l = (data[(i + j) * scale + offset] as f32 - 2048.0f32) * window[j];
+                buffer_l[j] = Complex32 { re: val_l, im: 0. };
+                let val_r = (data[(i + j) * scale + offset + 1] as f32 - 2048.0f32) * window[j];
+                buffer_r[j] = Complex32 { re: val_r, im: 0. };
+            }
+
+            fft.process_with_scratch(&mut buffer_l, &mut scratch);
+            fft.process_with_scratch(&mut buffer_r, &mut scratch);
+
+            for j in 0..fft_size {
+                ibuffer[j] = buffer_l[j] * buffer_r[j].conj();
+            }
+
+            ifft.process_with_scratch(&mut ibuffer, &mut scratch);
+            let mut image_column = vec![[0, 0, 0]; height];
+
+            let max = max_real_complex_f32(&ibuffer);
+            let min = min_real_complex_f32(&ibuffer);
+
+            for j in 0..height {
+                let ang = (ibuffer[j].re ) / (398504800000.0 * 0.005 );
+
+                
+                image_column[j] = flo_hsl_to_rgb(0.0, 0.0, 1.0-ang);
+            }
+         
+            (image_column, min, max)
+        })
+        .collect_into_vec(&mut pixel_data);
+
+    for (col, pixels) in pixel_data.iter().enumerate() {
+        for (i, pixel) in pixels.0.iter().enumerate() {
+            imgbuf.put_pixel(
+                col as u32,
+                (height - 1) as u32 - i as u32,
+                image::Rgb(*pixel),
+            );
+        }
+    }
+    let mut maximum = 0.0f32;
+    let mut minimum = 0.0f32;
+    
+    for i in 0..pixel_data.len()  {
+        maximum = if maximum > pixel_data[i].2 {
+            maximum
+        } else {
+            pixel_data[i].2
+        };
+        minimum = if minimum < pixel_data[i].1 {
+            minimum
+        } else {
+            pixel_data[i].1
+        };
+    }
+    println!("{} {} xx", minimum, maximum);
 
     imgbuf
 }
