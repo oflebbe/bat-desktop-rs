@@ -23,30 +23,14 @@ fn main() {
 
     let width = ((data16.len() - channels[0].offset) / channels[0].scale - fft_size) / step_size;
 
-    // let mut images = Vec::<image::RgbImage>::new(); // Vec::<image::ImageBuffer<image::Rgb<u8>,Vec<u8>>>::new();
-    let images = rayon::join(
-        || {
+    let images = 
             pixmap::create_pixmap(
                 data16,
-                channels[0].offset,
-                channels[0].scale,
                 fft_size,
                 step_size,
-                width,
-            )
-        },
-        || {
-            pixmap::create_pixmap(
-                data16,
-                channels[1].offset,
-                channels[1].scale,
-                fft_size,
-                step_size,
-                width,
-            )
-        },
-    );
-
+                0,
+                width);
+    
     let elapsed = start.elapsed();
 
     println!(

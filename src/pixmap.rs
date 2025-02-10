@@ -60,12 +60,11 @@ fn flo_hsl_to_rgb(h: f32, s: f32, l: f32) -> [u8; 3] {
 
 pub fn create_pixmap(
     data: &[u16],
-    offset: usize,
-    scale: usize,
     fft_size: usize,
     step_size: usize,
+    start: usize,
     width: usize,
-) -> image::RgbImage {
+) -> (image::RgbImage, image::RgbImage, image::RgbImage) {
     let a0 = 25. / 46. as f32;
     let window: Vec<f32> = (0..fft_size)
         .map(|i| a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos())
@@ -73,49 +72,82 @@ pub fn create_pixmap(
 
     let height = fft_size / 2;
 
-    let mut imgbuf = image::RgbImage::new(width as u32 + 1, height as u32);
-    let start = 0;
-    let max_width = ((data.len() - 1) / scale - (fft_size - 1) - start) / step_size;
-    let w = width.min(max_width);
+    let mut imgbuf_l = image::RgbImage::new(width as u32 , height as u32);
+    let mut imgbuf_r = image::RgbImage::new(width as u32 , height as u32);
+    let mut imgbuf_c = image::RgbImage::new(width as u32 , height as u32);
+    let max_width = ((data.len() - 1) / 2 - (fft_size - 1) - start) / step_size;
+    let w = (start + width).min(max_width);
 
     let fft = FftPlanner::new().plan_fft_forward(fft_size);
+    let ifft = FftPlanner::new().plan_fft_inverse(fft_size);
 
-    let mut pixel_data = Vec::<Vec<[u8; 3]>>::new();
-    (0..w)
+    let mut pixel_data = Vec::<_>::new();
+    (start..w)
         .into_par_iter()
         .map(|col| {
-            let mut buffer = vec![Complex::zero(); fft_size];
+            let mut buffer_l = vec![Complex::zero(); fft_size];
+            let mut buffer_r = vec![Complex::zero(); fft_size];
+            let mut buffer_c = vec![Complex::zero(); fft_size];
             let mut scratch = vec![Complex::zero(); fft.get_inplace_scratch_len()];
 
             let i = col * step_size;
             for j in 0..fft_size {
-                let val = (data[(i + j) * scale + offset] as f32 - 2048.0f32) * window[j];
-                buffer[j] = Complex32 { re: val, im: 0. };
+                let val_l = (data[(i + j) * 2 + 0] as f32 - 2048.0f32) * window[j];
+                buffer_l[j] = Complex32 { re: val_l, im: 0. };
+                let val_r = (data[(i + j) * 2 + 1] as f32 - 2048.0f32) * window[j];
+                buffer_r[j] = Complex32 { re: val_r, im: 0. };
             }
 
-            fft.process_with_scratch(&mut buffer, &mut scratch);
+            fft.process_with_scratch(&mut buffer_l, &mut scratch);
+            fft.process_with_scratch(&mut buffer_r, &mut scratch);
 
-            let mut image_column = vec![[0, 0, 0]; height];
+            let mut image_col = vec![([0, 0, 0], [0, 0, 0], [0, 0, 0]); height];
+
             for j in 0..height {
-                let ang = ((buffer[j].norm_sqr().log10() - 4.0) / (11.0 - 4.0)).clamp(0.0, 1.0);
-
-                image_column[j] = flo_hsl_to_rgb(1.0 - ang, 1.0, 0.5);
+                let ang = ((buffer_l[j].norm_sqr().log10() - 4.0) / (11.0 - 4.0)).clamp(0.0, 1.0);
+                image_col[j].0 = flo_hsl_to_rgb(1.0 - ang, 1.0, 0.5);
             }
-            image_column
+            for j in 0..height {
+                let ang = ((buffer_r[j].norm_sqr().log10() - 4.0) / (11.0 - 4.0)).clamp(0.0, 1.0);
+                image_col[j].1 = flo_hsl_to_rgb(1.0 - ang, 1.0, 0.5);
+            }
+
+            for j in 0..fft_size {
+                buffer_c[j] = buffer_l[j] * buffer_r[j].conj();
+            }
+
+            ifft.process_with_scratch(&mut buffer_c, &mut scratch);
+
+            let max = max_real_complex_f32(&buffer_c);
+            let min = min_real_complex_f32(&buffer_c);
+
+            for j in 0..height {
+                let ang = (buffer_c[j].re) / (398504800000.0 * 0.005);
+                image_col[j].2 = flo_hsl_to_rgb(0.0, 0.0, 1.0 - ang);
+            }
+            image_col
         })
         .collect_into_vec(&mut pixel_data);
-
     for (col, pixels) in pixel_data.iter().enumerate() {
         for (i, pixel) in pixels.iter().enumerate() {
-            imgbuf.put_pixel(
+            imgbuf_l.put_pixel(
                 col as u32,
                 (height - 1) as u32 - i as u32,
-                image::Rgb(*pixel),
+                image::Rgb(pixel.0),
+            );
+            imgbuf_r.put_pixel(
+                col as u32,
+                (height - 1) as u32 - i as u32,
+                image::Rgb(pixel.1),
+            );
+            imgbuf_c.put_pixel(
+                col as u32,
+                (height - 1) as u32 - i as u32,
+                image::Rgb(pixel.2),
             );
         }
     }
-
-    imgbuf
+    (imgbuf_l, imgbuf_r, imgbuf_c)
 }
 
 fn max_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
@@ -134,97 +166,4 @@ fn min_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
             Some(y) => Some(x.re.min(y)),
         })
         .unwrap()
-}
-
-pub fn create_correlation(
-    data: &[u16],
-    offset: usize,
-    scale: usize,
-    fft_size: usize,
-    step_size: usize,
-    width: usize,
-) -> image::RgbImage {
-    let a0 = 25. / 46. as f32;
-    let window: Vec<f32> = (0..fft_size)
-        .map(|i| a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos())
-        .collect();
-
-    let height = fft_size / 2;
-
-    let mut imgbuf = image::RgbImage::new(width as u32 + 1, height as u32);
-    let start = 0;
-    let max_width = ((data.len() - 1) / scale - (fft_size - 1) - start) / step_size;
-    let w = width.min(max_width);
-
-    let fft = FftPlanner::new().plan_fft_forward(fft_size);
-    let ifft = FftPlanner::new().plan_fft_inverse(fft_size);
-    let mut pixel_data = Vec::<(Vec<[u8; 3]>,f32,f32)>::new();
-
-    (0..w)
-        .into_par_iter()
-        .map(|col| {
-            let mut buffer_l = vec![Complex::zero(); fft_size];
-            let mut buffer_r = vec![Complex::zero(); fft_size];
-            let mut ibuffer = vec![Complex::zero(); fft_size];
-            let mut scratch = vec![Complex::zero(); fft.get_inplace_scratch_len()];
-
-            let i = col * step_size;
-            for j in 0..fft_size {
-                let val_l = (data[(i + j) * scale + offset] as f32 - 2048.0f32) * window[j];
-                buffer_l[j] = Complex32 { re: val_l, im: 0. };
-                let val_r = (data[(i + j) * scale + offset + 1] as f32 - 2048.0f32) * window[j];
-                buffer_r[j] = Complex32 { re: val_r, im: 0. };
-            }
-
-            fft.process_with_scratch(&mut buffer_l, &mut scratch);
-            fft.process_with_scratch(&mut buffer_r, &mut scratch);
-
-            for j in 0..fft_size {
-                ibuffer[j] = buffer_l[j] * buffer_r[j].conj();
-            }
-
-            ifft.process_with_scratch(&mut ibuffer, &mut scratch);
-            let mut image_column = vec![[0, 0, 0]; height];
-
-            let max = max_real_complex_f32(&ibuffer);
-            let min = min_real_complex_f32(&ibuffer);
-
-            for j in 0..height {
-                let ang = (ibuffer[j].re ) / (398504800000.0 * 0.005 );
-
-                
-                image_column[j] = flo_hsl_to_rgb(0.0, 0.0, 1.0-ang);
-            }
-         
-            (image_column, min, max)
-        })
-        .collect_into_vec(&mut pixel_data);
-
-    for (col, pixels) in pixel_data.iter().enumerate() {
-        for (i, pixel) in pixels.0.iter().enumerate() {
-            imgbuf.put_pixel(
-                col as u32,
-                (height - 1) as u32 - i as u32,
-                image::Rgb(*pixel),
-            );
-        }
-    }
-    /*
-    let mut maximum = 0.0f32;
-    let mut minimum = 0.0f32;
-    
-    for i in 0..pixel_data.len()  {
-        maximum = if maximum > pixel_data[i].2 {
-            maximum
-        } else {
-            pixel_data[i].2
-        };
-        minimum = if minimum < pixel_data[i].1 {
-            minimum
-        } else {
-            pixel_data[i].1
-        };
-    }
- */
-    imgbuf
 }
