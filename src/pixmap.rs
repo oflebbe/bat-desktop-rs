@@ -65,7 +65,7 @@ pub fn create_pixmap(
     start: usize,
     width: usize,
 ) -> (image::RgbImage, image::RgbImage, image::RgbImage) {
-    let a0 = 25. / 46. as f32;
+    let a0 = 25_f32 / 46_f32;
     let window: Vec<f32> = (0..fft_size)
         .map(|i| a0 - (1.0 - a0) * (TAU * i as f32 / ((fft_size - 1) as f32)).cos())
         .collect();
@@ -150,7 +150,7 @@ pub fn create_pixmap(
     (imgbuf_l, imgbuf_r, imgbuf_c)
 }
 
-fn max_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
+fn max_real_complex_f32(vec: &[Complex<f32>]) -> f32 {
     vec.iter()
         .fold(None, |min, &x| match min {
             None => Some(x.re),
@@ -159,7 +159,7 @@ fn max_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
         .unwrap()
 }
 
-fn min_real_complex_f32(vec: &Vec<Complex<f32>>) -> f32 {
+fn min_real_complex_f32(vec: &[Complex<f32>]) -> f32 {
     vec.iter()
         .fold(None, |min, &x| match min {
             None => Some(x.re),
