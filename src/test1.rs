@@ -18,7 +18,7 @@ fn main() {
     let fft_size = 512;
     let step_size = (fft_size as f32 / 0.9f32) as usize;
 
-    let width = 1200; // ((data16.len() - channels[0].offset) / channels[0].scale - fft_size) / step_size;
+    let width = ((data16.len()) / 2 - fft_size) / step_size;
 
     let images = 
             pixmap::create_pixmap(
