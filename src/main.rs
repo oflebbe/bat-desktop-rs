@@ -51,7 +51,6 @@ fn main() -> eframe::Result {
     };
 
     let input = input::Input::new(OsStr::new(&args[1])).expect("no err expected");
-
     eframe::run_native(
         "Image Viewer",
         options,
@@ -129,8 +128,7 @@ impl eframe::App for MyApp {
             ui.spacing_mut().scroll = egui::style::ScrollStyle::thin();
 
             egui::ScrollArea::both().show_viewport(ui, |ui, rect| {
-                println!("{}", rect);
-                ui.set_width(10000.0);
+                ui.set_width((&self.input.get().len() / 4) as f32);
                 let (im_l, im_r, im_c) = load_images(
                     &self.input,
                     rect.left() as usize,
